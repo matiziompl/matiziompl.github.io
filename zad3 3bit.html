@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Rewersyjny licznik JK – X=0 i X=1 razem</title>
+  <title>Rewersyjny licznik JK i D – X=0 i X=1 razem</title>
   <style>
     body { font-family: Arial; margin: 20px; }
     table, th, td {
@@ -13,13 +13,34 @@
     }
     input { width: 30px; text-align: center; }
     h3 { margin-top: 40px; }
+    .tabs {
+      display: flex;
+      margin-bottom: 10px;
+    }
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      margin-right: 5px;
+    }
+    .tab.active {
+      background-color: #e0e0e0;
+      border-bottom: 1px solid white;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
 <nav>
     <a href="index.html">Zad 1 i 2</a> |
-    <a href="zad_3_JK.html">Zad 3 JK</a> |
-    <a href="zad_3_D.html">Zad 3 D</a>
+    <a href="zad3_3bit.html">Zad 3 3bit</a> |
+    <a href="zad3_4bit.html">Zad 3 4bit</a>
 </nav>
 <h2>Wprowadź kolejne stany Q<sub>C</sub>, Q<sub>B</sub>, Q<sub>A</sub> (kolejność licznika):</h2>
 <table id="stateTable">
@@ -37,9 +58,20 @@
 </table>
 
 <br>
-<button onclick="runJK()">Oblicz JK i generuj tablice Karnaugha</button>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('jk-tab')">Przerzutniki JK</div>
+  <div class="tab" onclick="switchTab('d-tab')">Przerzutniki D</div>
+</div>
 
-<div id="output"></div>
+<button onclick="runCalculations()">Oblicz i generuj tablice Karnaugha</button>
+
+<div id="jk-tab" class="tab-content active">
+  <div id="jk-output"></div>
+</div>
+
+<div id="d-tab" class="tab-content">
+  <div id="d-output"></div>
+</div>
 
 <script>
   function jk(q, qp) {
@@ -48,8 +80,26 @@
     if (q === 1 && qp === 0) return ['-', 1];
     if (q === 1 && qp === 1) return ['-', 0];
   }
+  
+  function d(q, qp) {
+    // Przerzutnik D po prostu pobiera wartość następnego stanu
+    return qp;
+  }
 
-  function runJK() {
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    if (tabId === 'jk-tab') {
+      document.querySelector('.tab:nth-child(1)').classList.add('active');
+    } else {
+      document.querySelector('.tab:nth-child(2)').classList.add('active');
+    }
+    
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function runCalculations() {
     let transitions = [];
     for (let i = 0; i < 8; i++) {
       const qc = parseInt(document.getElementById(`qc${i}`).value);
@@ -62,6 +112,11 @@
       transitions.push([qc, qb, qa]);
     }
 
+    calculateJK(transitions);
+    calculateD(transitions);
+  }
+
+  function calculateJK(transitions) {
     const JA = [], KA = [], JB = [], KB = [], JC = [], KC = [];
 
     // przejścia dla każdej kombinacji X, Qc, Qb, Qa
@@ -86,8 +141,8 @@
       }
     }
 
-    const output = document.getElementById("output");
-    output.innerHTML =
+    const jkOutput = document.getElementById("jk-output");
+    jkOutput.innerHTML =
       generateKMap("J_A", JA) +
       generateKMap("K_A", KA) +
       generateKMap("J_B", JB) +
@@ -96,11 +151,40 @@
       generateKMap("K_C", KC);
   }
 
-    function generateKMap(name, data) {
+  function calculateD(transitions) {
+    const DA = [], DB = [], DC = [];
+
+    // przejścia dla każdej kombinacji X, Qc, Qb, Qa
+    for (let X = 0; X <= 1; X++) {
+      for (let i = 0; i < 8; i++) {
+        const [qc, qb, qa] = transitions[i];
+
+        // przy X=1 – przejście do przodu; X=0 – przejście do tyłu
+        let nextIndex = (X === 1) ? (i + 1) % 8 : (i + 7) % 8;
+        const [qcp, qbp, qap] = transitions[nextIndex];
+
+        const da = d(qa, qap);
+        const db = d(qb, qbp);
+        const dc = d(qc, qcp);
+
+        DA.push({x: X, qc, qb, qa, val: da});
+        DB.push({x: X, qc, qb, qa, val: db});
+        DC.push({x: X, qc, qb, qa, val: dc});
+      }
+    }
+
+    const dOutput = document.getElementById("d-output");
+    dOutput.innerHTML =
+      generateKMap("D_A", DA) +
+      generateKMap("D_B", DB) +
+      generateKMap("D_C", DC);
+  }
+
+  function generateKMap(name, data) {
     // Kolumny w standardowej kolejności kodu Graya
     const grayColumns = [[0,0], [0,1], [1,1], [1,0]]; // kolejność 00, 01, 11, 10
     // Wiersze w zmienionej kolejności
-    const grayRows = [[0,0], [0,1], [1,1], [1,0]]; // kolejność 00, 10, 11, 01
+    const grayRows = [[0,0], [0,1], [1,1], [1,0]]; // kolejność 00, 01, 11, 10
     
     let html = `<h3>${name}</h3><table><tr><th>XQ<sub>C</sub> \\ Q<sub>B</sub>Q<sub>A</sub></th>`;
     for (let [qb, qa] of grayColumns) html += `<th>${qb}${qa}</th>`;
@@ -118,9 +202,7 @@
     }
     html += "</table>";
     return html;
-    }
-
+  }
 </script>
-
 </body>
 </html>

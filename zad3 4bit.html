@@ -2,9 +2,9 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Rewersyjny licznik D</title>
+  <title>Rewersyjny licznik JK</title>
   <style>
-    body { font-family: Arial; margin: 20px; }
+    body { margin: 20px; font-family: sans-serif; }
     table, th, td {
       border: 1px solid black;
       border-collapse: collapse;
@@ -13,20 +13,11 @@
     }
     input { width: 30px; text-align: center; }
     h3 { margin-top: 40px; }
-    .table-container {
+    .kmaps-container {
       display: flex;
       flex-wrap: wrap;
       gap: 20px;
       margin-bottom: 30px;
-    }
-    .kmap-table {
-      margin-bottom: 20px;
-    }
-    #app-container {
-      margin-bottom: 30px;
-      padding: 20px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
     }
     button {
       padding: 8px 16px;
@@ -45,12 +36,12 @@
 <body>
   <nav>
       <a href="index.html">Zad 1 i 2</a> |
-      <a href="zad_3_JK.html">Zad 3 JK</a> |
-      <a href="zad_3_D.html">Zad 3 D</a>
+      <a href="zad3_3bit.html">Zad 3 3bit</a> |
+      <a href="zad3_4bit.html">Zad 3 4bit</a>
   </nav>
-  <h1>Rewersyjny licznik D</h1>
+  <h1>Rewersyjny licznik D i JK</h1>
 
-  <div id="app-container">
+  <div>
     <h2>Aplikacja</h2>
     <h3>Wprowadź kolejne stany Q<sub>D</sub>, Q<sub>C</sub>, Q<sub>B</sub>, Q<sub>A</sub> (kolejność licznika):</h3>
     <div style="margin-bottom: 10px;">
@@ -73,6 +64,7 @@
     </table>
 
     <button onclick="runD()">Oblicz D i generuj tablice Karnaugha</button>
+    <button onclick="runJK()">Oblicz J/K i generuj tablice Karnaugha</button>
     <button id="fillCustomData">Wypełnij dostarczoną sekwencją</button>
 
     <div id="output"></div>
@@ -84,6 +76,25 @@
   function dFlipFlop(q, qp) {
     // Dla przerzutnika D, wartość D jest po prostu wartością następnego stanu
     return qp;
+  }
+
+  // Funkcje obliczające wartości J i K dla przerzutnika JK
+  function jFlipFlop(q, qp) {
+    // Jeśli obecny stan to 0, a następny to 1, potrzebujemy J=1
+    if (q === 0 && qp === 1) return 1;
+    // Jeśli obecny stan to 0, a następny to 0, potrzebujemy J=0
+    if (q === 0 && qp === 0) return 0;
+    // Jeśli obecny stan to 1, to J nie ma znaczenia (stan ogólny)
+    return "-";
+  }
+  
+  function kFlipFlop(q, qp) {
+    // Jeśli obecny stan to 1, a następny to 0, potrzebujemy K=1
+    if (q === 1 && qp === 0) return 1;
+    // Jeśli obecny stan to 1, a następny to 1, potrzebujemy K=0
+    if (q === 1 && qp === 1) return 0;
+    // Jeśli obecny stan to 0, to K nie ma znaczenia (stan ogólny)
+    return "-";
   }
 
   function runD() {
@@ -125,6 +136,7 @@
 
     const output = document.getElementById("output");
     output.innerHTML =
+      "<h2>Wyniki dla przerzutników D</h2>" +
       generateSplitKMap("D_A", DA) +
       generateSplitKMap("D_B", DB) +
       generateSplitKMap("D_C", DC) +
@@ -133,10 +145,70 @@
     return { DA, DB, DC, DD, transitions };
   }
 
+  function runJK() {
+    let transitions = [];
+    for (let i = 0; i < 16; i++) {
+      const qd = parseInt(document.getElementById(`qd${i}`).value);
+      const qc = parseInt(document.getElementById(`qc${i}`).value);
+      const qb = parseInt(document.getElementById(`qb${i}`).value);
+      const qa = parseInt(document.getElementById(`qa${i}`).value);
+      if ([qd, qc, qb, qa].some(x => isNaN(x))) {
+        alert("Uzupełnij wszystkie pola wartościami 0 lub 1.");
+        return;
+      }
+      transitions.push([qd, qc, qb, qa]);
+    }
+
+    const JA = [], KA = [], JB = [], KB = [], JC = [], KC = [], JD = [], KD = [];
+
+    // przejścia dla każdej kombinacji X, Qd, Qc, Qb, Qa
+    for (let X = 0; X <= 1; X++) {
+      for (let i = 0; i < 16; i++) {
+        const [qd, qc, qb, qa] = transitions[i];
+
+        // przy X=1 – przejście do przodu; X=0 – przejście do tyłu
+        let nextIndex = (X === 1) ? (i + 1) % 16 : (i + 15) % 16;
+        const [qdp, qcp, qbp, qap] = transitions[nextIndex];
+
+        const ja = jFlipFlop(qa, qap);
+        const ka = kFlipFlop(qa, qap);
+        const jb = jFlipFlop(qb, qbp);
+        const kb = kFlipFlop(qb, qbp);
+        const jc = jFlipFlop(qc, qcp);
+        const kc = kFlipFlop(qc, qcp);
+        const jd = jFlipFlop(qd, qdp);
+        const kd = kFlipFlop(qd, qdp);
+
+        JA.push({x: X, qd, qc, qb, qa, val: ja});
+        KA.push({x: X, qd, qc, qb, qa, val: ka});
+        JB.push({x: X, qd, qc, qb, qa, val: jb});
+        KB.push({x: X, qd, qc, qb, qa, val: kb});
+        JC.push({x: X, qd, qc, qb, qa, val: jc});
+        KC.push({x: X, qd, qc, qb, qa, val: kc});
+        JD.push({x: X, qd, qc, qb, qa, val: jd});
+        KD.push({x: X, qd, qc, qb, qa, val: kd});
+      }
+    }
+
+    const output = document.getElementById("output");
+    output.innerHTML =
+      "<h2>Wyniki dla przerzutników JK</h2>" +
+      generateSplitKMap("J_A", JA) +
+      generateSplitKMap("K_A", KA) +
+      generateSplitKMap("J_B", JB) +
+      generateSplitKMap("K_B", KB) +
+      generateSplitKMap("J_C", JC) +
+      generateSplitKMap("K_C", KC) +
+      generateSplitKMap("J_D", JD) +
+      generateSplitKMap("K_D", KD);
+    
+    return { JA, KA, JB, KB, JC, KC, JD, KD, transitions };
+  }
+
   function generateSplitKMap(name, data) {
-    // Rozdzielenie map Karnaugha na dwie osobne dla X=0 i X=1
+    // Generowanie dwóch map Karnaugha dla X=0 i X=1 obok siebie
     let html = `<h3>${name}</h3>`;
-    html += `<div class="table-container">`;
+    html += `<div class="kmaps-container">`;
     
     // Generowanie mapy dla X=0
     html += generateKMapForX(name, data, 0);
@@ -157,7 +229,7 @@
     const grayRows = [[0,0], [0,1], [1,1], [1,0]]; // QDQC: 00, 01, 11, 10
     
     // Nagłówek tabeli
-    let html = `<div class="kmap-table">`;
+    let html = `<div>`;
     html += `<table>`;
     html += `<caption><strong>${name} dla X=${xValue}</strong></caption>`;
     html += `<tr><th>QD QC / QB QA</th>`;
@@ -174,10 +246,19 @@
       
       // Komórki dla każdej kombinacji QB, QA
       for (let [qb, qa] of grayColumns) {
-        const found = data.find(e => 
-          e.x === xValue && e.qd === qd && e.qc === qc && e.qb === qb && e.qa === qa
-        );
-        html += `<td>${found ? found.val : "-"}</td>`;
+        // Sprawdzamy czy istnieje odpowiedni wpis w danych
+        let foundEntry = null;
+        for (let entry of data) {
+          if (entry.x === xValue && entry.qd === qd && entry.qc === qc && 
+              entry.qb === qb && entry.qa === qa) {
+            foundEntry = entry;
+            break;
+          }
+        }
+        
+        // Jeśli znaleziono wpis, wyświetl jego wartość (która może być "-" jeśli funkcja zwróciła "-")
+        const cellValue = foundEntry !== null ? foundEntry.val : "-";
+        html += `<td>${cellValue}</td>`;
       }
       html += `</tr>`;
     }
