@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+    <style>
+        table, th, td 
+        {
+            border: 1px solid black;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th
+        {
+            background-color: lightgray;
+        }
+
+        .input
+        {
+            width: 25px;
+            height: 25px;
+            border: none;
+            border-radius: 0px;
+        }
+
+        .container
+        {
+            text-align: center;
+            width: max-content;
+            float: left;
+            margin: 10px;
+            border: 1px solid black;
+        }
+
+        .output_div
+        {
+            text-align: center;
+            width: max-content;
+            float: left;
+            margin: 10px;
+        }
+
+        .output_table th,
+        .output_table td
+        {
+            padding: 5px;
+            text-align: center;
+        }
+
+        .clear
+        {
+            clear:both;
+        }
+
+        .graph_container
+        {
+            width: 800px;
+            height: 800px;
+            background: #f5f5f5;
+            display: block;
+            float: left;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="input_table">
+        <table>
+            <tr>
+                <th>Q<sub>1</sub>Q<sub>2</sub>\X<sub>1</sub>X<sub>2</sub></th>
+                <th>00</th>
+                <th>01</th>
+                <th>11</th>
+                <th>10</th>
+                <th>Y<sub>1</sub>Y<sub>2</sub></th>
+            </tr>
+            <tr>
+                <th>00</th>
+                <td><input type="text" id="input_00" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_01" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_02" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_03" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_04" class="input" maxlength="2" value="00"></td>
+            </tr>
+            <tr>
+                <th>01</th>
+                <td><input type="text" id="input_10" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_11" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_12" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_13" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_14" class="input" maxlength="2" value="00"></td>
+            </tr>
+            <tr>
+                <th>11</th>
+                <td><input type="text" id="input_20" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_21" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_22" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_23" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_24" class="input" maxlength="2" value="00"></td>
+            </tr>
+            <tr>
+                <th>10</th>
+                <td><input type="text" id="input_30" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_31" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_32" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_33" class="input" maxlength="2" value="00"></td>
+                <td><input type="text" id="input_34" class="input" maxlength="2" value="00"></td>
+            </tr>
+        </table>
+      </div>
+
+      <br/>
+      <button id="perform_button">Wykonaj</button>
+
+      <br/>
+      <div id="containers">
+      </div>
+      <script>
+            const TABLE_WIDTH = 5;
+            const TABLE_HEIGHT = 4;
+
+            //Table size without Y values
+            const QX_TABLE_WIDTH = 4;
+            const QX_TABLE_HEIGHT = 4;
+
+            const RESULTS_CONTAINER_HTML = 
+            `
+                    <div id="ex_1_container" class="container">
+                        <div id="ex_1_y1" class="output_div"></div>
+                        <div id="ex_1_y2" class="output_div"></div>
+                        <div class="clear"></div>
+                        <div id="ex_1_q1_s" class="output_div"></div>
+                        <div id="ex_1_q1_r" class="output_div"></div>
+                        <div class="clear"></div>
+                        <div id="ex_1_q2_s" class="output_div"></div>
+                        <div id="ex_1_q2_r" class="output_div"></div>
+                    </div>
+
+                    <div id="ex_2_container" class="container">
+                        <div id="ex_2_y1" class="output_div"></div>
+                        <div id="ex_2_y2" class="output_div"></div>
+                        <div class="clear"></div>
+                        <div id="ex_2_q1_j" class="output_div"></div>
+                        <div id="ex_2_q1_k" class="output_div"></div>
+                        <div class="clear"></div>
+                        <div id="ex_2_q2_j" class="output_div"></div>
+                        <div id="ex_2_q2_k" class="output_div"></div>
+                    </div>
+
+                    <div id="graph_container" class="graph_container"></div>
+            `;
+
+            const STATES = ["00", "01", "11", "10"];
+
+            let data = [];
+
+            function CreateOutputKarnaughTables(y_index, output_div_id)
+            {
+                let output_div = document.getElementById(output_div_id);
+
+                let output_div_content = "<h2>Y" + y_index + "</h2>";
+
+                output_div_content += `<table class="output_table"><tr><th>Q<sub>1</sub>Q<sub>2</sub></th><th>0</th><th>1</th></tr>`;
+
+                const q1q2_00 = data[0][4][y_index - 1];
+                const q1q2_01 = data[1][4][y_index - 1];
+                const q1q2_10 = data[3][4][y_index - 1];
+                const q1q2_11 = data[2][4][y_index - 1];
+
+                output_div_content += "<tr><th>0</th><td>" + q1q2_00 + "</td><td>" + q1q2_01 + "</td></tr>";
+                output_div_content += "<tr><th>1</th><td>" + q1q2_10 + "</td><td>" + q1q2_11 + "</td></tr>";
+
+                output_div_content += "</table>";
+                output_div.innerHTML = output_div_content;
+            }
+
+            function CreateRSTriggersKarnaughTables(q_index, s_output_div_id, r_output_div_id)
+            {
+                let s_output_div = document.getElementById(s_output_div_id);
+                let r_output_div = document.getElementById(r_output_div_id);
+
+                let s_output_div_content = "<h2>S" + (q_index == "1" ? "1" : "2") + "</h2>";
+                let r_output_div_content = "<h2>R" + (q_index == "1" ? "1" : "2") + "</h2>";
+
+                s_output_div_content += `<table class="output_table"><tr><th>Q<sub>1</sub>Q<sub>2</sub>\X<sub>1</sub>X<sub>2</sub></th><th>00</th><th>01</th><th>11</th><th>10</th></tr>`;
+                r_output_div_content += `<table class="output_table"><tr><th>Q<sub>1</sub>Q<sub>2</sub>\X<sub>1</sub>X<sub>2</sub></th><th>00</th><th>01</th><th>11</th><th>10</th></tr>`;
+
+                for (let i = 0; i < QX_TABLE_HEIGHT; i++)
+                {
+                    let signal_value = (q_index == "1" ? STATES[i][0] : STATES[i][1]);
+
+                    s_output_div_content += "<tr><th>" + STATES[i] + "</th>";
+                    r_output_div_content += "<tr><th>" + STATES[i] + "</th>";
+
+                    for (let j = 0; j < QX_TABLE_WIDTH; j++)
+                    {
+                        if (data[i][j].length != 2)
+                        {
+                            alert("Uzupełnij dobrze tą tabele dałnie.");
+
+                            return;
+                        }
+
+                        const from = signal_value;
+                        const to = (q_index == "1" ? data[i][j][0] : data[i][j][1]); 
+
+                        let s_value = "0";
+                        let r_value = "0";
+
+                        switch (from + to)
+                        {
+                            case "00": r_value = "-"; break;
+                            case "01": s_value = "1"; break;
+                            case "11": s_value = "-"; break;
+                            case "10": r_value = "1"; break;
+                        }
+
+                        s_output_div_content += "<td>" + s_value + "</td>";
+                        r_output_div_content += "<td>" + r_value + "</td>";
+                    }
+
+                    s_output_div_content += "</tr>";
+                    r_output_div_content += "</tr>";
+                }
+
+                s_output_div_content += "</table>";
+                r_output_div_content += "</table>";
+
+                s_output_div.innerHTML = s_output_div_content;
+                r_output_div.innerHTML = r_output_div_content;
+            }
+
+            function CreateJKTriggersKarnaughTables(q_index, j_output_div_id, k_output_div_id)
+            {
+                let j_output_div = document.getElementById(j_output_div_id);
+                let k_output_div = document.getElementById(k_output_div_id);
+
+                let j_output_div_content = "<h2>J" + (q_index == "1" ? "1" : "2") + "</h2>";
+                let k_output_div_content = "<h2>K" + (q_index == "1" ? "1" : "2") + "</h2>";
+
+                j_output_div_content += `<table class="output_table"><tr><th>Q<sub>1</sub>Q<sub>2</sub>\X<sub>1</sub>X<sub>2</sub></th><th>00</th><th>01</th><th>11</th><th>10</th></tr>`;
+                k_output_div_content += `<table class="output_table"><tr><th>Q<sub>1</sub>Q<sub>2</sub>\X<sub>1</sub>X<sub>2</sub></th><th>00</th><th>01</th><th>11</th><th>10</th></tr>`;
+
+                for (let i = 0; i < QX_TABLE_HEIGHT; i++)
+                {
+                    let signal_value = (q_index == "1" ? STATES[i][0] : STATES[i][1]);
+
+                    j_output_div_content += "<tr><th>" + STATES[i] + "</th>";
+                    k_output_div_content += "<tr><th>" + STATES[i] + "</th>";
+
+                    for (let j = 0; j < QX_TABLE_WIDTH; j++)
+                    {
+                        if (data[i][j].length != 2)
+                        {
+                            alert("Uzupełnij dobrze tą tabele dałnie.");
+
+                            return;
+                        }
+
+                        const from = signal_value;
+                        const to = (q_index == "1" ? data[i][j][0] : data[i][j][1]); 
+
+                        let j_value = "0";
+                        let k_value = "0";
+
+                        switch (from + to)
+                        {
+                            case "00": j_value = "0"; k_value = "-";    break;
+                            case "01": j_value = "1"; k_value = "-";    break;
+                            case "11": j_value = "-"; k_value = "0";    break;
+                            case "10": j_value = "-"; k_value = "1";    break;
+                        }
+
+                        j_output_div_content += "<td>" + j_value + "</td>";
+                        k_output_div_content += "<td>" + k_value + "</td>";
+                    }
+
+                    j_output_div_content += "</tr>";
+                    k_output_div_content += "</tr>";
+                }
+
+                j_output_div_content += "</table>";
+                k_output_div_content += "</table>";
+
+                j_output_div.innerHTML = j_output_div_content;
+                k_output_div.innerHTML = k_output_div_content;
+            }
+
+            function CreateGraph()
+            {
+                const graph = {};
+
+                for (let i = 0; i < QX_TABLE_WIDTH; i++) 
+                {
+                    for (let j = 0; j < QX_TABLE_HEIGHT; j++) 
+                    {
+                        const from = STATES[i];
+                        const to = data[i][j];
+                        const input = STATES[j];
+                        const key = `${from}-${to}`;
+                
+                        if (!graph[key]) 
+                        {
+                            graph[key] = input;
+                        } 
+                        else 
+                        {
+                            graph[key] += ', ' + input;
+                        }
+                    }
+                }
+                
+                const nodes = STATES.map(state => ({ data: { id: state } }));
+                const edges = [];
+                
+                for (const [conn, label] of Object.entries(graph)) 
+                {
+                    const from = conn.slice(0, 2);
+                    const to = conn.slice(3, 5);
+                    edges.push({
+                        data: 
+                        {
+                            id: `${from}-${to}`,
+                            source: from,
+                            target: to,
+                            label: label
+                        }
+                    });
+                }
+                
+                const cy = cytoscape({
+                    container: document.getElementById("graph_container"),
+                    elements: 
+                    {
+                    nodes,
+                    edges
+                    },
+                    style: 
+                    [
+                    {
+                        selector: 'node',
+                        style: {
+                            'width': 50,         
+                            'height': 50,
+                            'label': 'data(label)',
+                            'text-valign': 'center', 
+                            'text-halign': 'center',  
+                            'background-color': '#66ccff',
+                            'label': 'data(id)',
+                            'font-size': '20px',
+                            'font-weight': 'bold',
+                            'color': '#000'
+                        }
+                        },
+                        {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#555',
+                            'target-arrow-color': '#555',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'label': 'data(label)',
+                            'font-size': '12px',
+                            'text-rotation': 'autorotate',
+                            'text-margin-y': -10
+                        }
+                    }
+                    ],
+                    layout: 
+                    {
+                        name: 'preset',
+                        positions: 
+                        {
+                            '00': { x: -200, y: -200 },
+                            '01': { x: 200, y: -200 },
+                            '10': { x: 200, y: 200 },
+                            '11': { x: -200, y: 200 }
+                        }
+                    },
+                    userZoomingEnabled: false,
+                });
+            }
+
+            document.getElementById("perform_button").addEventListener("click", function() 
+            {
+                document.getElementById("containers").innerHTML = RESULTS_CONTAINER_HTML;
+
+                data.length = 0;
+
+                for (let i = 0; i < TABLE_HEIGHT; i++)
+                {
+                    let row = [];
+                    for (let j = 0; j < TABLE_WIDTH; j++)
+                    {
+                        const value = document.getElementById("input_" + i + j).value;
+
+                        row.push(value);
+                    }
+
+                    data.push(row);
+                }
+                
+                
+                //compute results for exercise 1
+                CreateOutputKarnaughTables("1", "ex_1_y1");
+                CreateOutputKarnaughTables("2", "ex_1_y2");
+                CreateRSTriggersKarnaughTables("1", "ex_1_q1_s", "ex_1_q1_r");
+                CreateRSTriggersKarnaughTables("2", "ex_1_q2_s", "ex_1_q2_r");
+
+                let ex_1_container = document.getElementById("ex_1_container");
+                ex_1_container.innerHTML = "<h1>Zadanie 1</h1>" + ex_1_container.innerHTML;
+
+                //compute results for exercise 2
+                CreateOutputKarnaughTables("1", "ex_2_y1");
+                CreateOutputKarnaughTables("2", "ex_2_y2");
+                CreateJKTriggersKarnaughTables("1", "ex_2_q1_j", "ex_2_q1_k");
+                CreateJKTriggersKarnaughTables("2", "ex_2_q2_j", "ex_2_q2_k");
+
+                let ex_2_container = document.getElementById("ex_2_container");
+                ex_2_container.innerHTML = "<h1>Zadanie 2</h1>" + ex_2_container.innerHTML;
+
+                CreateGraph();
+            });
+
+            document.querySelectorAll('.input').forEach(input => {
+                input.addEventListener('input', () => {
+                    input.value = input.value.replace(/[^01]/g, '');
+                });
+            });
+      </script>
+</body>
+</html>
